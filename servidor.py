@@ -1,4 +1,3 @@
-# servidor.py
 import paho.mqtt.client as mqtt
 import xmlrpc.server
 from queue import Queue
@@ -6,15 +5,14 @@ import math
 import threading
 import time
 
-# servidor.py
 class ServidorChat:
     def __init__(self):
-        # Configurar cliente MQTT com versão 2 da API
+        
         self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         self.mqtt_client.on_connect = self.on_connect
         self.mqtt_client.on_disconnect = self.on_disconnect
         
-        # Configurar broker público sem TLS
+       
         self.BROKER = "test.mosquitto.org"  # Definir como variável de instância
         self.PORT = 1883
         
