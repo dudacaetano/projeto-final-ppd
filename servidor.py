@@ -6,6 +6,7 @@ import math
 import threading
 import time
 
+# servidor.py
 class ServidorChat:
     def __init__(self):
         # Configurar cliente MQTT com versão 2 da API

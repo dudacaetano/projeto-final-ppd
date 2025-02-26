@@ -1,3 +1,17 @@
+"""
+coordenadas prox
+"User1": (23.550520, -46.633308),  # Centro de São Paulo
+"User2": (23.552520, -46.635308),
+
+
+coordenadas dist
+"User1": (22.906846, -43.172896),  # Rio de Janeiro
+"User2": (25.428352, -49.273333),  # Curitiba   
+
+User1": (23.550520, -46.633308),  # São Paulo, Brasil
+"User2": (35.676192, 139.650399),  # Tóquio, Japão
+"""
+
 # cliente.py
 import tkinter as tk
 from tkinter import ttk
