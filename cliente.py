@@ -36,10 +36,10 @@ class ClienteChat:
         self.lat = 0
         self.lon = 0
         
-        # Estruturas de dados para melhorias
-        self.usuarios_conhecidos = {}  # Dicionário para armazenar todos os usuários
+       #lista de dados
+        self.usuarios_conhecidos = {}  #  armazenar todos os usuários
         self.usuarios_proximos = []    # Lista para usuários próximos
-        self.mensagens_pendentes = {}  # Dicionário para mensagens pendentes
+        self.mensagens_pendentes = {}  # mensagens pendentes
         
         # Configurar interface
         self.criar_interface()
@@ -178,7 +178,7 @@ class ClienteChat:
                 self.servidor_rpc.atualizar_localizacao(self.nome, self.lat, self.lon)
                 self.atualizar_usuarios()
                 self.verificar_mensagens_pendentes()
-            time.sleep(30)
+            time.sleep(120)
 
     def verificar_mensagens_pendentes(self):
         """Verifica se há mensagens pendentes que podem ser entregues"""
