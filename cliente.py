@@ -1,23 +1,26 @@
 """
-coordenadas prox
-"User1": (23.550520, -46.633308),  # Centro de São Paulo
-"User2": (23.552520, -46.635308),
+coordenad,as prox
+Usuário 1:  São Paulo (Centro) → (23.550520, -46.633308)
+Usuário 2: São Paulo (Próximo - 150m de distância) → (23.551520, -46.633808)
 
 
 coordenadas dist
-"User1": (22.906846, -43.172896),  # Rio de Janeiro
-"User2": (25.428352, -49.273333),  # Curitiba   
+Usuário 1: São Paulo (Centro) → (23.550520, -46.633308)
+Usuário 2: Guarulhos (Longe - 13km de distância) → (23.454167, -46.533333) 
+
+Primeira posição (fora do alcance, mensagens são enfileiradas)
+
+Usuário 1: Rio de Janeiro → (22.906847, -43.172896)
+Usuário 2: Curitiba → (25.428356, -49.273251)
 
 User1": (23.550520, -46.633308),  # São Paulo, Brasil
 "User2": (35.676192, 139.650399),  # Tóquio, Japão
 """
 
-# cliente.py
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 import xmlrpc.client
 import paho.mqtt.client as mqtt
-import math
 import threading
 import time
 
@@ -36,23 +39,22 @@ class ClienteChat:
         self.servidor_rpc = xmlrpc.client.ServerProxy("http://localhost:8000")
         self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         self.mqtt_client.on_connect = self.on_connect
+        self.mqtt_client.on_message = self.on_message
         self.mqtt_client.on_disconnect = self.on_disconnect
         
-        # Configurar broker público sem TLS
-        BROKER = "test.mosquitto.org"
-        PORT = 1883
+        # Configurar broker público
+        self.BROKER = "test.mosquitto.org"
+        self.PORT = 1883
         
-        # Conectar ao broker
-        self.mqtt_client.connect(BROKER, PORT, 60)
+        self.mqtt_client.connect(self.BROKER, self.PORT, 60)
         self.mqtt_client.loop_start()
         
-        # Iniciar thread de atualização de usuários
-        self.atualizar_usuarios_thread = threading.Thread(target=self.atualizar_usuarios_periodicamente)
-        self.atualizar_usuarios_thread.daemon = True
-        self.atualizar_usuarios_thread.start()
+        # Iniciar thread de atualização de usuários e localização
+        self.atualizar_thread = threading.Thread(target=self.atualizar_periodicamente)
+        self.atualizar_thread.daemon = True
+        self.atualizar_thread.start()
         
     def criar_interface(self):
-        # Frame de login
         frame_login = ttk.Frame(self.root, padding="10")
         frame_login.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
@@ -70,7 +72,6 @@ class ClienteChat:
         
         ttk.Button(frame_login, text="Conectar", command=self.conectar).grid(row=3, column=0, columnspan=2)
         
-        # Frame do chat
         self.frame_chat = ttk.Frame(self.root, padding="10")
         self.frame_chat.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
@@ -90,21 +91,12 @@ class ClienteChat:
             print("Conectado ao broker com sucesso")
         else:
             print(f"Falha na conexão: código {reason_code}")
-            
+        
     def on_disconnect(self, client, userdata, reason_code, properties):
         print(f"Desconectado do broker. Código: {reason_code}")
         if reason_code != 0:
-            self.reconectar()
+            self.mqtt_client.reconnect()
             
-    def reconectar(self):
-        while True:
-            try:
-                self.mqtt_client.reconnect()
-                break
-            except Exception as e:
-                print(f"Tentativa de reconexão falhou: {e}")
-                time.sleep(5)
-                
     def conectar(self):
         self.nome = self.entrada_nome.get()
         self.lat = float(self.entrada_lat.get())
@@ -112,21 +104,22 @@ class ClienteChat:
         
         if self.servidor_rpc.registrar_usuario(self.nome, self.lat, self.lon):
             self.mqtt_client.subscribe(f"chat/{self.nome}")
-            self.mqtt_client.on_message = self.on_message
             self.frame_chat.tkraise()
             self.atualizar_usuarios()
         else:
-            tk.messagebox.showerror("Erro", "Não foi possível conectar ao servidor")
+            messagebox.showerror("Erro", "Não foi possível conectar ao servidor")
             
     def on_message(self, client, userdata, msg):
         remetente, mensagem = msg.payload.decode().split(":", 1)
         self.texto_chat.insert(tk.END, f"{remetente}: {mensagem}\n")
         self.texto_chat.see(tk.END)
         
-    def atualizar_usuarios_periodicamente(self):
+    def atualizar_periodicamente(self):
         while True:
-            self.atualizar_usuarios()
-            time.sleep(120)  # Atualiza a cada 2 minutos
+            if self.nome:
+                self.servidor_rpc.atualizar_localizacao(self.nome, self.lat, self.lon)
+                self.atualizar_usuarios()
+            time.sleep(120)
             
     def atualizar_usuarios(self):
         usuarios_proximos = self.servidor_rpc.encontrar_usuarios_proximos(self.nome)
@@ -135,16 +128,18 @@ class ClienteChat:
             self.lista_usuarios.insert(tk.END, usuario)
             
     def enviar_mensagem(self):
-        destinatario = self.lista_usuarios.get(self.lista_usuarios.curselection())
-        if destinatario:
+        try:
+            destinatario = self.lista_usuarios.get(self.lista_usuarios.curselection())
             mensagem = self.entrada_mensagem.get()
-            if self.servidor_rpc.enviar_mensagem(self.nome, destinatario, mensagem):
-                self.texto_chat.insert(tk.END, f"Você: {mensagem}\n")
-            else:
-                tk.messagebox.showinfo("Mensagem Enfileirada", 
-                                     "Destinatário não está no alcance. Mensagem será entregue quando próximo.")
-            self.entrada_mensagem.delete(0, tk.END)
-            
+            if destinatario:
+                if self.servidor_rpc.enviar_mensagem(self.nome, destinatario, mensagem):
+                    self.texto_chat.insert(tk.END, f"Você: {mensagem}\n")
+                else:
+                    messagebox.showinfo("Mensagem Enfileirada", "Destinatário não está no alcance. Mensagem será entregue quando próximo.")
+                self.entrada_mensagem.delete(0, tk.END)
+        except tk.TclError:
+            messagebox.showwarning("Atenção", "Selecione um destinatário antes de enviar uma mensagem.")
+    
     def run(self):
         self.root.mainloop()
 
