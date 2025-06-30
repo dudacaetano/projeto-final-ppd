@@ -1,4 +1,4 @@
-# projeto-final-ppd
+# Chat Distribuído com Middleware Orientado a Mensagens
 <h1 align="center">
    <br>Chat Distribuído com Middleware Orientado a Mensagens (MOM) e RPC
 </h1>
